@@ -8,11 +8,11 @@ on:
                 type: string
 
 env:
-    TRIVY_SEVERITY: 'CRITICAL,HIGH,MEDIUM'
-    TRIVY_FORMAT: 'sarif'
-    TRIVY_OUTPUT: 'trivy-results.sarif'
-    TRIVY_COMMENT_FORMAT: 'table'
-    TRIVY_COMMENT_OUTPUT: 'trivy-results.txt'
+    SCAN_SEVERITY: 'CRITICAL,HIGH,MEDIUM'
+    SCAN_FORMAT: 'sarif'
+    SCAN_OUTPUT: 'trivy-results.sarif'
+    SCAN_COMMENT_FORMAT: 'table'
+    SCAN_COMMENT_OUTPUT: 'trivy-results.txt'
 
 jobs:
     trivy-scan:
@@ -32,18 +32,18 @@ jobs:
               with:
                 scan-type: 'config'
                 scan-ref: '.'
-                severity: ${{ env.TRIVY_SEVERITY }}
-                format: ${{ env.TRIVY_FORMAT }}
-                output: ${{ env.TRIVY_OUTPUT }}
+                severity: ${{ env.SCAN_SEVERITY }}
+                format: ${{ env.SCAN_FORMAT }}
+                output: ${{ env.SCAN_OUTPUT }}
 
             - name: Generate Trivy text report for PR comment
               uses: aquasecurity/trivy-action@v0.36.0
               with:
                 scan-type: 'config'
                 scan-ref: '.'
-                severity: ${{ env.TRIVY_SEVERITY }}
-                format: ${{ env.TRIVY_COMMENT_FORMAT }}
-                output: ${{ env.TRIVY_COMMENT_OUTPUT }}
+                severity: ${{ env.SCAN_SEVERITY }}
+                format: ${{ env.SCAN_COMMENT_FORMAT }}
+                output: ${{ env.SCAN_COMMENT_OUTPUT }}
 
             - name: Comment Trivy results on PR
               if: always() && github.event_name == 'pull_request'
@@ -52,7 +52,7 @@ jobs:
                 github-token: ${{ secrets.GITHUB_TOKEN }}
                 script: |
                   const fs = require('fs');
-                  const filePath = process.env.TRIVY_COMMENT_OUTPUT || 'trivy-results.txt';
+                  const filePath = process.env.SCAN_COMMENT_OUTPUT || 'trivy-results.txt';
 
                   const prNumber = context.payload.pull_request?.number;
                   if (!prNumber) {
@@ -101,11 +101,11 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                 name: trivy-report
-                path: ${{ env.TRIVY_OUTPUT }}
+                path: ${{ env.SCAN_OUTPUT }}
                 retention-days: 5
 
             - name: Upload Trivy scan results to GitHub Security tab
               uses: github/codeql-action/upload-sarif@v4
               if: always()
               with:
-                sarif_file: ${{ env.TRIVY_OUTPUT }}
+                sarif_file: ${{ env.SCAN_OUTPUT }}
