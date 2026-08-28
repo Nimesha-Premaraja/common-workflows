@@ -46,7 +46,7 @@ jobs:
                   echo
                   echo "Scanned on: ${{ env.CURRENT_DATE }}"
                   echo
-                  echo "| Severity | Check | Finding | File | Remediation |"
+                  echo "| Severity | Check ID | Finding | File | Remediation |"
                   echo "| --- | --- | --- | --- | --- |"
                   jq -r '
                     .Results[]?
