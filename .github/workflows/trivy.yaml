@@ -1,18 +1,16 @@
 name: Trivy Scan
 on:
-    workflow_call:
-        inputs:
-            repo-name:
-                description: 'Name of the repository'
-                required: false
-                type: string
+  workflow_call:
+    inputs:
+      repo-name:
+        description: 'Name of the repository'
+        required: false
+        type: string
 
 env:
     SCAN_SEVERITY: 'CRITICAL,HIGH,MEDIUM'
-    SCAN_FORMAT: 'sarif'
-    SCAN_OUTPUT: 'trivy-results.sarif'
-    SCAN_COMMENT_FORMAT: 'table'
-    SCAN_COMMENT_OUTPUT: 'trivy-results.txt'
+    SCAN_FORMAT: 'table'
+    SCAN_OUTPUT: 'trivy-results.txt'
 
 jobs:
     trivy-scan:
@@ -35,74 +33,17 @@ jobs:
                 severity: ${{ env.SCAN_SEVERITY }}
                 format: ${{ env.SCAN_FORMAT }}
                 output: ${{ env.SCAN_OUTPUT }}
+                cache: 'false'
+            
+            - run: echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-            - name: Generate Trivy text report for PR comment
-              uses: aquasecurity/trivy-action@v0.36.0
+            - name: Create Issue From File
+              uses: peter-evans/create-issue-from-file@v6
               with:
-                scan-type: 'config'
-                scan-ref: '.'
-                severity: ${{ env.SCAN_SEVERITY }}
-                format: ${{ env.SCAN_COMMENT_FORMAT }}
-                output: ${{ env.SCAN_COMMENT_OUTPUT }}
-
-            - name: Comment Trivy results on PR
-              if: always() && github.event_name == 'pull_request'
-              uses: actions/github-script@v7
-              with:
-                github-token: ${{ secrets.GITHUB_TOKEN }}
-                script: |
-                  const fs = require('fs');
-                  const filePath = process.env.SCAN_COMMENT_OUTPUT || 'trivy-results.txt';
-
-                  const prNumber = context.payload.pull_request?.number;
-                  if (!prNumber) {
-                    core.info('No pull request context found. Skipping PR comment.');
-                    return;
-                  }
-
-                  if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
-                    const results = fs.readFileSync(filePath, 'utf8');
-                    const truncatedResults =
-                      results.length > 65000
-                        ? results.substring(0, 65000) + '\n\n**Output truncated...**'
-                        : results;
-
-                    const commentBody = [
-                      '### Security Scan Results',
-                      '',
-                      '<details>',
-                      '<summary>Click to expand scan details</summary>',
-                      '',
-                      '```',
-                      truncatedResults,
-                      '```',
-                      '',
-                      '</details>',
-                      '',
-                      'Please review the reported issues before merging.'
-                    ].join('\n');
-
-                    await github.rest.issues.createComment({
-                      issue_number: prNumber,
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      body: commentBody
-                    });
-                  } else {
-                    await github.rest.issues.createComment({
-                      issue_number: prNumber,
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      body: 'No CRITICAL, HIGH, or MEDIUM vulnerabilities found in the scan.'
-                    });
-                  }
-
-            - name: Upload Vulnerability Scan Results
-              uses: actions/upload-artifact@v4
-              with:
-                name: trivy-report
-                path: ${{ env.SCAN_OUTPUT }}
-                retention-days: 5
+                title: Trivy Scan Results on ${{ env.CURRENT_DATE }}
+                content-filepath: ${{ env.SCAN_OUTPUT }}
+                labels: |
+                  trivy-scan
 
             - name: Upload Trivy scan results to GitHub Security tab
               uses: github/codeql-action/upload-sarif@v4
